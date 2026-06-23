@@ -4,27 +4,34 @@
 #include "Utility/AlsMath.h"
 #include "AlsRigUnit_ApplyFootOffsetLocation.generated.h"
 
+/// Applies a vertical foot-IK offset with spring-smoothed interpolation, clamped by the leg length.
 USTRUCT(DisplayName = "Apply Foot Offset Location", Meta = (Category = "ALS", NodeColor = "0.0 0.36 1.0"))
 struct ALS_API FAlsRigUnit_ApplyFootOffsetLocation : public FRigUnitMutable
 {
 	GENERATED_BODY()
 
 public:
+	/// Pelvis bone item the leg chain hangs from.
 	UPROPERTY(Meta = (Input, ExpandByDefault))
 	FRigElementKey PelvisItem;
 
+	/// Thigh (upper leg) bone item; top of the leg chain.
 	UPROPERTY(Meta = (Input, ExpandByDefault))
 	FRigElementKey ThighItem;
 
+	/// Desired world-space foot location before the offset is applied.
 	UPROPERTY(Transient, Meta = (Input))
 	FVector FootTargetLocation{ForceInit};
 
+	/// Vertical (Z) foot offset to apply, in world space.
 	UPROPERTY(Transient, Meta = (Input))
 	float FootOffsetLocationZ{0.0f};
 
+	/// Vertical offset already applied to the pelvis, compensated for here.
 	UPROPERTY(Transient, Meta = (Input))
 	float PelvisOffset{0.0f};
 
+	/// Total length of the leg chain, used to clamp how far the foot can reach.
 	UPROPERTY(Meta = (Input, ClampMin = 0, ForceUnits = "cm"))
 	float LegLength{0.0f};
 
@@ -67,6 +74,7 @@ public:
 	UPROPERTY(Transient)
 	float OffsetLocationZ{0.0f};
 
+	/// Resulting foot location after the offset and leg-length clamping are applied.
 	UPROPERTY(Transient, Meta = (Output))
 	FVector FootLocation{ForceInit};
 
