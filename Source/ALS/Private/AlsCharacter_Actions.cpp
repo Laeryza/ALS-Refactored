@@ -19,6 +19,17 @@
 #include "Utility/AlsRotation.h"
 #include "Utility/AlsVector.h"
 
+namespace
+{
+	// 通過タグ = 「縁に登る」でなく「くぐって向こうへ降りる」対象 (まぐさを持つ開口 = 窓)。
+	// 判定 (StartMantling) と mantle 中の移動衝突除外 (StartMantlingImplementation) が同じ問いを
+	// 立てるので、式は 1 箇所に置く。
+	bool IsMantlePassThroughActor(const AActor* Actor)
+	{
+		return IsValid(Actor) && Actor->ActorHasTag(UAlsConstants::MantlePassThroughTagName());
+	}
+}
+
 UAnimMontage* AAlsCharacter::SelectRollMontage_Implementation()
 {
 	return Settings->Rolling.Montage;
@@ -258,9 +269,7 @@ bool AAlsCharacter::StartMantling(const FAlsMantlingTraceSettings& TraceSettings
 	// 通過タグ付きアクターは「縁に登る」でなく「くぐって向こうへ降りる」対象 (まぐさを持つ開口 = 窓)。
 	// タグが無ければ以降の計算は上流のまま。
 
-	const auto* HitActor{ForwardTraceHit.GetActor()};
-
-	const auto bPassThrough{IsValid(HitActor) && HitActor->ActorHasTag(UAlsConstants::MantlePassThroughTagName())};
+	const auto bPassThrough{IsMantlePassThroughActor(ForwardTraceHit.GetActor())};
 
 	// Trace downward from the first trace's impact point and determine if the hit location is walkable.
 
@@ -611,7 +620,7 @@ void AAlsCharacter::StartMantlingImplementation(const FAlsMantlingParameters& Pa
 
 	auto* PassThroughActor{Parameters.TargetPrimitive->GetOwner()};
 
-	if (IsValid(PassThroughActor) && PassThroughActor->ActorHasTag(UAlsConstants::MantlePassThroughTagName()))
+	if (IsMantlePassThroughActor(PassThroughActor))
 	{
 		GetCapsuleComponent()->IgnoreActorWhenMoving(PassThroughActor, true);
 
