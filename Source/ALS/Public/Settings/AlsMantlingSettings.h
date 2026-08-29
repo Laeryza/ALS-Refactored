@@ -93,6 +93,16 @@ struct ALS_API FAlsMantlingTraceSettings
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ALS", Meta = (ClampMin = 0, ForceUnits = "cm"))
 	float StartLocationOffset{55.0f};
 
+	/// 通過タグ付きアクターでのみ、下方トレースの開始高を決める際に LedgeHeight.Max の代わりに使う。
+	/// まぐさを持つ開口 (窓) では既定 225 の開始点が梁の内部に入り、窓台へ届く前に初期貫通で落ちる。
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ALS", Meta = (ClampMin = 0, ForceUnits = "cm"))
+	float PassThroughLedgeHeightMax{140.0f};
+
+	/// 通過タグ付きアクターでのみ、終点の前方オフセットとして TargetLocationOffset の代わりに使う。
+	/// 縁の上でなく壁の向こうへ降ろすため、壁厚 + カプセル半径ぶんは前へ出す必要がある。
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ALS", Meta = (ClampMin = 0, ForceUnits = "cm"))
+	float PassThroughTargetOffset{50.0f};
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ALS", Meta = (ClampMin = 0))
 	uint8 bDrawFailedTraces : 1 {false};
 };

@@ -255,16 +255,32 @@ bool AAlsCharacter::StartMantling(const FAlsMantlingTraceSettings& TraceSettings
 
 	const auto TargetDirection{-ForwardTraceHit.ImpactNormal.GetSafeNormal2D()};
 
+	// 通過タグ付きアクターは「縁に登る」でなく「くぐって向こうへ降りる」対象 (まぐさを持つ開口 = 窓)。
+	// タグが無ければ以降の計算は上流のまま。
+
+	const auto* HitActor{ForwardTraceHit.GetActor()};
+
+	const auto bPassThrough{IsValid(HitActor) && HitActor->ActorHasTag(UAlsConstants::MantlePassThroughTagName())};
+
 	// Trace downward from the first trace's impact point and determine if the hit location is walkable.
 
 	static const FName DownwardTraceTag{FString::Printf(TEXT("%hs (Downward Trace)"), __FUNCTION__)};
 
 	const FVector2D TargetLocationOffset{TargetDirection * (TraceSettings.TargetLocationOffset * CapsuleScale)};
 
+	// 下方トレースの開始高だけ下げる。既定の LedgeHeight.Max ではまぐさの内部から掃引を始めることになり、
+	// 初期貫通が返って窓台に到達できない。
+
+	const auto DownwardLedgeHeightDelta{
+		bPassThrough
+			? UE_REAL_TO_FLOAT((TraceSettings.PassThroughLedgeHeightMax - TraceSettings.LedgeHeight.GetMin()) * CapsuleScale)
+			: LedgeHeightDelta
+	};
+
 	const FVector DownwardTraceStart{
 		ForwardTraceHit.ImpactPoint.X + TargetLocationOffset.X,
 		ForwardTraceHit.ImpactPoint.Y + TargetLocationOffset.Y,
-		CapsuleBottomLocation.Z + LedgeHeightDelta + 2.5f * TraceCapsuleRadius + UCharacterMovementComponent::MIN_FLOOR_DIST
+		CapsuleBottomLocation.Z + DownwardLedgeHeightDelta + 2.5f * TraceCapsuleRadius + UCharacterMovementComponent::MIN_FLOOR_DIST
 	};
 
 	const FVector DownwardTraceEnd{
@@ -314,9 +330,13 @@ bool AAlsCharacter::StartMantling(const FAlsMantlingTraceSettings& TraceSettings
 
 	static const FName TargetLocationTraceTag{FString::Printf(TEXT("%hs (Target Location Overlap)"), __FUNCTION__)};
 
+	// 通過タグ付きなら終点を壁の向こうへ出す (縁の上に立たせない)。原点は手前の壁面 = 前方トレースの当たり。
+
+	const FVector2D PassThroughOffset{TargetDirection * (TraceSettings.PassThroughTargetOffset * CapsuleScale)};
+
 	const FVector TargetLocation{
-		DownwardTraceHit.Location.X,
-		DownwardTraceHit.Location.Y,
+		bPassThrough ? ForwardTraceHit.ImpactPoint.X + PassThroughOffset.X : DownwardTraceHit.Location.X,
+		bPassThrough ? ForwardTraceHit.ImpactPoint.Y + PassThroughOffset.Y : DownwardTraceHit.Location.Y,
 		DownwardTraceHit.ImpactPoint.Z + UCharacterMovementComponent::MIN_FLOOR_DIST
 	};
 
@@ -562,6 +582,18 @@ void AAlsCharacter::StartMantlingImplementation(const FAlsMantlingParameters& Pa
 	// Apply root motion.
 	MantlingState.RootMotionSourceId = GetCharacterMovement()->ApplyRootMotionSource(RootMotionSource);
 
+	// 通過タグ付きなら mantle 中だけ移動衝突から外す。外さないと壁をくぐる途中でカプセルが押し戻される。
+	// 戻すのは StopMantling = 通常終了・中断の唯一の出口。
+
+	auto* PassThroughActor{Parameters.TargetPrimitive->GetOwner()};
+
+	if (IsValid(PassThroughActor) && PassThroughActor->ActorHasTag(UAlsConstants::MantlePassThroughTagName()))
+	{
+		GetCapsuleComponent()->IgnoreActorWhenMoving(PassThroughActor, true);
+
+		MantlingState.PassThroughActor = PassThroughActor;
+	}
+
 	// Play the animation montage if valid.
 
 	if (GetMesh()->GetAnimInstance()->Montage_Play(MantlingSettings->Montage) > 0.0f)
@@ -704,6 +736,13 @@ void AAlsCharacter::StopMantling(const bool bStopMontage)
 
 	AlsCharacterMovement->SetMovementModeLocked(false);
 	GetCharacterMovement()->SetMovementMode(MOVE_Walking);
+
+	if (auto* PassThroughActor{MantlingState.PassThroughActor.Get()})
+	{
+		GetCapsuleComponent()->IgnoreActorWhenMoving(PassThroughActor, false);
+
+		MantlingState.PassThroughActor = nullptr;
+	}
 
 	OnMantlingEnded();
 

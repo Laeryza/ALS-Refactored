@@ -93,6 +93,10 @@ protected:
 	inline static FName TracesDebugDisplay{TEXTVIEW("ALS.Traces")};
 	inline static FName MantlingDebugDisplay{TEXTVIEW("ALS.Mantling")};
 
+	// Actor Tags
+
+	inline static FName MantlePassThroughTag{TEXTVIEW("MantlePassThrough")};
+
 public:
 	// Bones
 
@@ -296,6 +300,11 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "ALS|Constants|Debug", Meta = (ReturnDisplayName = "Display Name"))
 	static FName MantlingDebugDisplayName();
+
+	// Actor Tags
+
+	UFUNCTION(BlueprintPure, Category = "ALS|Constants|Tags", Meta = (ReturnDisplayName = "Tag Name"))
+	static FName MantlePassThroughTagName();
 };
 
 inline FName UAlsConstants::RootBoneName()
@@ -611,4 +620,9 @@ inline FName UAlsConstants::TracesDebugDisplayName()
 inline FName UAlsConstants::MantlingDebugDisplayName()
 {
 	return MantlingDebugDisplay;
+}
+
+inline FName UAlsConstants::MantlePassThroughTagName()
+{
+	return MantlePassThroughTag;
 }
