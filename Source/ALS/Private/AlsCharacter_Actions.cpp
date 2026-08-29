@@ -277,16 +277,38 @@ bool AAlsCharacter::StartMantling(const FAlsMantlingTraceSettings& TraceSettings
 			: LedgeHeightDelta
 	};
 
+	// 開口の通り抜けが成立するかは「足元からの高さ」ではなく まぐさと縁の絶対高で決まる。
+	// カプセル底を基準にすると跳躍中は探査球も一緒に上がり、少し跳んだだけでまぐさの内部から
+	// 掃引を始めて初期貫通で落ちる (跳躍高しだいで成否が変わる = 手触りが安定しない)。
+	// 真下の接地面を基準に取り直すと、接地でも跳躍中でも同じ結果になる。
+
+	static const FName GroundTraceTag{FString::Printf(TEXT("%hs (Pass Through Ground Trace)"), __FUNCTION__)};
+
+	auto ProbeBottomLocationZ{CapsuleBottomLocation.Z};
+
+	if (bPassThrough)
+	{
+		FHitResult GroundTraceHit;
+		if (GetWorld()->LineTraceSingleByChannel(GroundTraceHit, CapsuleBottomLocation,
+		                                         CapsuleBottomLocation - FVector{
+			                                         0.0f, 0.0f, TraceSettings.LedgeHeight.GetMax() * CapsuleScale
+		                                         }, Settings->Mantling.MantlingTraceChannel,
+		                                         {GroundTraceTag, false, this}, Settings->Mantling.MantlingTraceResponses))
+		{
+			ProbeBottomLocationZ = GroundTraceHit.ImpactPoint.Z;
+		}
+	}
+
 	const FVector DownwardTraceStart{
 		ForwardTraceHit.ImpactPoint.X + TargetLocationOffset.X,
 		ForwardTraceHit.ImpactPoint.Y + TargetLocationOffset.Y,
-		CapsuleBottomLocation.Z + DownwardLedgeHeightDelta + 2.5f * TraceCapsuleRadius + UCharacterMovementComponent::MIN_FLOOR_DIST
+		ProbeBottomLocationZ + DownwardLedgeHeightDelta + 2.5f * TraceCapsuleRadius + UCharacterMovementComponent::MIN_FLOOR_DIST
 	};
 
 	const FVector DownwardTraceEnd{
 		DownwardTraceStart.X,
 		DownwardTraceStart.Y,
-		CapsuleBottomLocation.Z +
+		ProbeBottomLocationZ +
 		TraceSettings.LedgeHeight.GetMin() * CapsuleScale + TraceCapsuleRadius - UCharacterMovementComponent::MAX_FLOOR_DIST
 	};
 
@@ -428,7 +450,9 @@ bool AAlsCharacter::StartMantling(const FAlsMantlingTraceSettings& TraceSettings
 
 	// Determine the mantling type by checking the movement mode and mantling height.
 
-	Parameters.MantlingType = LocomotionMode != AlsLocomotionModeTags::Grounded
+	// 通過タグの開口は空中から入っても「くぐる」動きで、登り切る InAir 用モンタージュ (高い縁向け) を
+	// 当てると終点が低すぎて体が地面へ潜る。空中でも高さで種別を決める。
+	Parameters.MantlingType = LocomotionMode != AlsLocomotionModeTags::Grounded && !bPassThrough
 		                          ? EAlsMantlingType::InAir
 		                          : Parameters.MantlingHeight > Settings->Mantling.MantlingHighHeightThreshold
 		                          ? EAlsMantlingType::High
