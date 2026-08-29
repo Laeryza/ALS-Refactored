@@ -139,9 +139,12 @@ private:
 
 	float CalculateFovOffset() const;
 
-	FVector CalculateCameraTrace(const FVector& CameraTargetLocation, const FVector& PivotOffset,
-	                             float DeltaTime, bool bAllowLag, float& NewTraceDistanceRatio) const;
+protected:
+	// 派生が遮蔽物の扱いを差し替えられるようにする (引き寄せの下限・遮蔽物のフェード等)。
+	virtual FVector CalculateCameraTrace(const FVector& CameraTargetLocation, const FVector& PivotOffset,
+	                                     float DeltaTime, bool bAllowLag, float& NewTraceDistanceRatio) const;
 
+private:
 	bool TryAdjustLocationBlockedByGeometry(FVector& Location, bool bDisplayDebugCameraTraces) const;
 
 	// Debug
