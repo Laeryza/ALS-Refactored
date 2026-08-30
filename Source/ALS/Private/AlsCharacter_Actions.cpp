@@ -271,20 +271,6 @@ bool AAlsCharacter::StartMantling(const FAlsMantlingTraceSettings& TraceSettings
 
 	const auto bPassThrough{IsMantlePassThroughActor(ForwardTraceHit.GetActor())};
 
-	// 診断: 前方ヒットが通過タグ付きかどうかを残す。既存の bDrawFailedTraces (mantle トレースの
-	// デバッグ表示スイッチ) に相乗りしているので、通常プレイでは出ない。
-	if (TraceSettings.bDrawFailedTraces)
-	{
-		const auto* HitActor{ForwardTraceHit.GetActor()};
-
-		UE_LOG(LogAls, Log, TEXT("Mantle: forward hit %s (%s) passThrough=%d"),
-		       *GetNameSafe(HitActor),
-		       HitActor != nullptr
-			       ? *FString::JoinBy(HitActor->Tags, TEXT(","), [](const FName& T) { return T.ToString(); })
-			       : TEXT("-"),
-		       bPassThrough ? 1 : 0);
-	}
-
 	// Trace downward from the first trace's impact point and determine if the hit location is walkable.
 
 	static const FName DownwardTraceTag{FString::Printf(TEXT("%hs (Downward Trace)"), __FUNCTION__)};
