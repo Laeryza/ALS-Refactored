@@ -455,6 +455,10 @@ bool AAlsCharacter::StartMantling(const FAlsMantlingTraceSettings& TraceSettings
 	FAlsMantlingParameters Parameters;
 
 	Parameters.TargetPrimitive = TargetPrimitive;
+
+	// 通過タグの判定は前方トレースのヒットで行う。着地先 (TargetPrimitive) は壁の向こうの床になるので、
+	// そちらから引き直すと窓を取り逃がす (実測: PassThroughActor が常に null になっていた)。
+	Parameters.PassThroughActor = bPassThrough ? ForwardTraceHit.GetActor() : nullptr;
 	Parameters.MantlingHeight = UE_REAL_TO_FLOAT((TargetLocation.Z - CapsuleBottomLocation.Z) / CapsuleScale);
 
 	// Determine the mantling type by checking the movement mode and mantling height.
@@ -618,7 +622,7 @@ void AAlsCharacter::StartMantlingImplementation(const FAlsMantlingParameters& Pa
 	// 通過タグ付きなら mantle 中だけ移動衝突から外す。外さないと壁をくぐる途中でカプセルが押し戻される。
 	// 戻すのは StopMantling = 通常終了・中断の唯一の出口。
 
-	auto* PassThroughActor{Parameters.TargetPrimitive->GetOwner()};
+	auto* PassThroughActor{Parameters.PassThroughActor.Get()};
 
 	if (IsMantlePassThroughActor(PassThroughActor))
 	{

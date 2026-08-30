@@ -36,6 +36,11 @@ struct ALS_API FAlsMantlingParameters
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ALS")
 	EAlsMantlingType MantlingType{EAlsMantlingType::High};
+
+	// 通過タグ付きアクター (窓など)。判定は前方トレースのヒットで行うので、着地先 (TargetPrimitive) とは
+	// 別に持つ。通過モードでは着地先が壁の向こうの床になり、窓そのものは TargetPrimitive に現れない。
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ALS")
+	TWeakObjectPtr<AActor> PassThroughActor;
 };
 
 UCLASS(Blueprintable, BlueprintType)
