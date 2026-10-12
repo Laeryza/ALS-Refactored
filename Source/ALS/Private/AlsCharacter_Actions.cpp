@@ -228,7 +228,7 @@ bool AAlsCharacter::StartMantling(const FAlsMantlingTraceSettings& TraceSettings
 
 	// Trace forward to find an object the character cannot walk on.
 
-	static const FName ForwardTraceTag{FString::Printf(TEXT("%hs (Forward Trace)"), __FUNCTION__)};
+	static const FName ForwardTraceTag{TStringView{FAnsiString::Printf("%s (Forward Trace)", __FUNCTION__)}};
 
 	auto ForwardTraceStart{CapsuleBottomLocation - ForwardTraceDirection * CapsuleRadius};
 	ForwardTraceStart.Z += (TraceSettings.LedgeHeight.X + TraceSettings.LedgeHeight.Y) *
@@ -273,7 +273,7 @@ bool AAlsCharacter::StartMantling(const FAlsMantlingTraceSettings& TraceSettings
 
 	// Trace downward from the first trace's impact point and determine if the hit location is walkable.
 
-	static const FName DownwardTraceTag{FString::Printf(TEXT("%hs (Downward Trace)"), __FUNCTION__)};
+	static const FName DownwardTraceTag{TStringView{FAnsiString::Printf("%s (Downward Trace)", __FUNCTION__)}};
 
 	const FVector2D TargetLocationOffset{TargetDirection * (TraceSettings.TargetLocationOffset * CapsuleScale)};
 
@@ -359,7 +359,7 @@ bool AAlsCharacter::StartMantling(const FAlsMantlingTraceSettings& TraceSettings
 
 	// Check that there is enough free space for the capsule at the target location.
 
-	static const FName TargetLocationTraceTag{FString::Printf(TEXT("%hs (Target Location Overlap)"), __FUNCTION__)};
+	static const FName TargetLocationTraceTag{TStringView{FAnsiString::Printf("%s (Target Location Overlap)", __FUNCTION__)}};
 
 	// 通過タグ付きなら終点を壁の向こうへ出す (縁の上に立たせない)。原点は手前の壁面 = 前方トレースの当たり。
 
@@ -399,7 +399,7 @@ bool AAlsCharacter::StartMantling(const FAlsMantlingTraceSettings& TraceSettings
 	// Perform additional overlap at the approximate start location to
 	// ensure there are no vertical obstacles on the path, such as a ceiling.
 
-	static const FName StartLocationTraceTag{FString::Printf(TEXT("%hs (Start Location Overlap)"), __FUNCTION__)};
+	static const FName StartLocationTraceTag{TStringView{FAnsiString::Printf("%s (Start Location Overlap)", __FUNCTION__)}};
 
 	const FVector2D StartLocationOffset{TargetDirection * (TraceSettings.StartLocationOffset * CapsuleScale)};
 
@@ -473,7 +473,8 @@ bool AAlsCharacter::StartMantling(const FAlsMantlingTraceSettings& TraceSettings
 
 	// If the target primitive cannot move, use world space to improve performance by skipping coordinate space transformations.
 
-	if (MovementBaseUtility::UseRelativeLocation(TargetPrimitive))
+	FMovementBaseInterfaceData MovementBaseData{TargetPrimitive};
+	if (MovementBaseUtility::UseRelativeLocation(&MovementBaseData))
 	{
 		const auto TargetTransform{
 			FTransform{TargetRotation, TargetCapsuleLocation}.GetRelativeTransform(TargetPrimitive->GetComponentTransform())
@@ -552,7 +553,8 @@ void AAlsCharacter::StartMantlingImplementation(const FAlsMantlingParameters& Pa
 	GetCharacterMovement()->SetMovementMode(MOVE_Custom);
 	AlsCharacterMovement->SetMovementModeLocked(true);
 
-	GetCharacterMovement()->SetBase(Parameters.TargetPrimitive.Get());
+	FMovementBaseInterfaceData MovementBaseData{Parameters.TargetPrimitive.Get()};
+	GetCharacterMovement()->SetBase(&MovementBaseData);
 
 	// Create mantling root motion.
 
@@ -568,7 +570,7 @@ void AAlsCharacter::StartMantlingImplementation(const FAlsMantlingParameters& Pa
 	RootMotionSource->Duration = Duration / PlayRate;
 	RootMotionSource->MontageStartTime = StartTime;
 
-	const auto bUseTargetPrimitiveSpace{MovementBaseUtility::UseRelativeLocation(Parameters.TargetPrimitive.Get())};
+	const auto bUseTargetPrimitiveSpace{MovementBaseUtility::UseRelativeLocation(&MovementBaseData)};
 	const FTransform MeshTransform{GetBaseRotationOffset()};
 
 	// Extract the initial root transform, invert it, convert it from component space to actor space, and apply it to the actor transform.
@@ -1138,6 +1140,11 @@ void AAlsCharacter::MulticastStopRagdolling_Implementation()
 void AAlsCharacter::StopRagdollingImplementation()
 {
 	if (!IsRagdollingAllowedToStop())
+	{
+		return;
+	}
+
+	if (!AnimationInstance.IsValid() || GetMesh()->GetComponentSpaceTransforms().IsEmpty())
 	{
 		return;
 	}

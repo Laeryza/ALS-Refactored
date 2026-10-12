@@ -6,6 +6,8 @@
 #include "Engine/OverlapResult.h"
 #include "GameFramework/Character.h"
 #include "GameFramework/WorldSettings.h"
+#include "Misc/DataValidation.h"
+#include "Misc/UObjectToken.h"
 #include "Utility/AlsCameraConstants.h"
 #include "Utility/AlsDebugUtility.h"
 #include "Utility/AlsMacros.h"
@@ -13,6 +15,8 @@
 #include "Utility/AlsUtility.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(AlsCameraComponent)
+
+#define LOCTEXT_NAMESPACE "AlsCameraComponent"
 
 UAlsCameraComponent::UAlsCameraComponent()
 {
@@ -22,6 +26,28 @@ UAlsCameraComponent::UAlsCameraComponent()
 	bTickInEditor = false;
 	bHiddenInGame = true;
 }
+
+#if WITH_EDITOR
+EDataValidationResult UAlsCameraComponent::IsDataValid(FDataValidationContext& Context) const
+{
+	auto Result{Super::IsDataValid(Context)};
+
+	if (!IsValid(Settings))
+	{
+		Context.AddMessage(EMessageSeverity::Warning)
+		       ->AddToken(FUObjectToken::Create(this))
+		       ->AddText(FText::Format(
+			       LOCTEXT("MissingCameraSettingWarning", "({ComponentName}): Camera settings must be set!"),
+			       {
+				       {FString{ANSITEXTVIEW("ComponentName")}, FText::AsCultureInvariant(GetName())}
+			       }));
+
+		Result = EDataValidationResult::Invalid;
+	}
+
+	return Result;
+}
+#endif
 
 void UAlsCameraComponent::PostLoad()
 {
@@ -184,13 +210,14 @@ void UAlsCameraComponent::TickCamera(const float DeltaTime, bool bAllowLag)
 
 	if (bMovementBaseHasRelativeRotation)
 	{
-		MovementBaseUtility::GetMovementBaseTransform(BasedMovement.MovementBase, BasedMovement.BoneName,
+		MovementBaseUtility::GetMovementBaseTransform(&BasedMovement.MovementBaseInterfaceData, BasedMovement.BoneName,
 		                                              MovementBaseLocation, MovementBaseRotation);
 	}
 
-	if (BasedMovement.MovementBase != MovementBasePrimitive || BasedMovement.BoneName != MovementBaseBoneName)
+	if (BasedMovement.MovementBaseInterfaceData != MovementBaseInterfaceData ||
+	    BasedMovement.BoneName != MovementBaseBoneName)
 	{
-		MovementBasePrimitive = BasedMovement.MovementBase;
+		MovementBaseInterfaceData = BasedMovement.MovementBaseInterfaceData;
 		MovementBaseBoneName = BasedMovement.BoneName;
 
 		if (bMovementBaseHasRelativeRotation)
@@ -402,7 +429,7 @@ FVector UAlsCameraComponent::CalculateCameraTrace(const FVector& CameraTargetLoc
 
 	const auto MeshScale{UE_REAL_TO_FLOAT(Character->GetMesh()->GetComponentScale().Z)};
 
-	static const FName MainTraceTag{FString::Printf(TEXT("%hs (Main Trace)"), __FUNCTION__)};
+	static const FName MainTraceTag{TStringView{FAnsiString::Printf("%s (Main Trace)", __FUNCTION__)}};
 
 	auto TraceStart{
 		FMath::Lerp(
@@ -426,7 +453,7 @@ FVector UAlsCameraComponent::CalculateCameraTrace(const FVector& CameraTargetLoc
 		}
 		else if (TryAdjustLocationBlockedByGeometry(TraceStart, bDisplayDebugCameraTraces))
 		{
-			static const FName AdjustedTraceTag{FString::Printf(TEXT("%hs (Adjusted Trace)"), __FUNCTION__)};
+			static const FName AdjustedTraceTag{TStringView{FAnsiString::Printf("%s (Adjusted Trace)", __FUNCTION__)}};
 
 			GetWorld()->SweepSingleByChannel(Hit, TraceStart, TraceEnd, FQuat::Identity, Settings->ThirdPerson.TraceChannel,
 			                                 CollisionShape, {AdjustedTraceTag, false, GetOwner()});
@@ -493,7 +520,7 @@ bool UAlsCameraComponent::TryAdjustLocationBlockedByGeometry(FVector& Location, 
 		Overlaps.Reset();
 	};
 
-	static const FName OverlapMultiTraceTag{FString::Printf(TEXT("%hs (Overlap Multi)"), __FUNCTION__)};
+	static const FName OverlapMultiTraceTag{TStringView{FAnsiString::Printf("%s (Overlap Multi)", __FUNCTION__)}};
 
 	if (!GetWorld()->OverlapMultiByChannel(Overlaps, Location, FQuat::Identity, Settings->ThirdPerson.TraceChannel,
 	                                       CollisionShape, {OverlapMultiTraceTag, false, GetOwner()}))
@@ -552,9 +579,11 @@ bool UAlsCameraComponent::TryAdjustLocationBlockedByGeometry(FVector& Location, 
 
 	Location += Adjustment;
 
-	static const FName FreeSpaceTraceTag{FString::Printf(TEXT("%hs (Free Space Overlap)"), __FUNCTION__)};
+	static const FName FreeSpaceTraceTag{TStringView{FAnsiString::Printf("%s (Free Space Overlap)", __FUNCTION__)}};
 
 	return !GetWorld()->OverlapBlockingTestByChannel(Location, FQuat::Identity, Settings->ThirdPerson.TraceChannel,
 	                                                 FCollisionShape::MakeSphere(Settings->ThirdPerson.TraceRadius * MeshScale),
 	                                                 {FreeSpaceTraceTag, false, GetOwner()});
 }
+
+#undef LOCTEXT_NAMESPACE
